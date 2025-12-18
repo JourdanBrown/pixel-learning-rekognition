@@ -1,0 +1,46 @@
+name: Analyze Images on Merge to Main
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'images/**'
+
+jobs:
+  analyze-images-prod:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Analyze images with Rekognition
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+          DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE_PROD }}
+          IMAGES_DIR: images
+        run: |
+          python scripts/analyze_image.py
+      
+      - name: Production deployment notification
+        if: success()
+        run: |
+          echo "✅ Production image analysis complete!"
+          echo "Results saved to prod_results table"
